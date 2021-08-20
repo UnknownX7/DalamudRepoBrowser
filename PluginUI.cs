@@ -62,7 +62,7 @@ namespace DalamudRepoBrowser
                             if (!string.IsNullOrEmpty(tooltip))
                                 ImGui.SetTooltip(tooltip);
 
-                            if (hasRepo && ImGui.IsMouseReleased(ImGuiMouseButton.Left) && repo.StartsWith(@"https://"))
+                            if (hasRepo && ImGui.IsMouseReleased(ImGuiMouseButton.Left) && repo.StartsWith(@"http"))
                                 Process.Start(repo);
                         }
 
