@@ -47,7 +47,6 @@ namespace DalamudRepoBrowser
             try
             {
                 ReflectRepos();
-                FetchRepoListAsync();
                 Interface.UiBuilder.OnBuildUi += PluginUI.Draw;
             }
             catch (Exception e) { PluginLog.LogError(e, "Failed to load."); }

@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Interface;
@@ -8,7 +8,8 @@ namespace DalamudRepoBrowser
 {
     public static class PluginUI
     {
-        public static bool isVisible = false;
+        public static bool isVisible = true;
+        private static bool _firstOpen = true;
 
         public static bool AddHeaderIcon(string id, string icon)
         {
@@ -52,6 +53,12 @@ namespace DalamudRepoBrowser
                 DalamudRepoBrowser.repoList = DalamudRepoBrowser.repoList.OrderBy(x => x.url).ToList();
 
             if (!isVisible) return;
+
+            if (_firstOpen)
+            {
+                DalamudRepoBrowser.FetchRepoListAsync();
+                _firstOpen = false;
+            }
 
             ImGui.SetNextWindowSize(new Vector2(830, 570) * ImGuiHelpers.GlobalScale);
             ImGui.Begin("Repository Browser", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse);
