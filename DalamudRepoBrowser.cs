@@ -25,7 +25,7 @@ namespace DalamudRepoBrowser
         public const string repoMaster = @"https://raw.githubusercontent.com/UnknownX7/DalamudRepoBrowser/master/repomaster.json";
         public static int currentAPILevel;
         public static List<ThirdRepoSetting> dalamudRepoSettings;
-        public static List<(string url, List<(string name, string description)> plugins)> repoList = new();
+        public static List<(string url, List<(string name, string description, string repo)> plugins)> repoList = new();
         public static int sortList;
 
         public void Initialize(DalamudPluginInterface p)
@@ -87,7 +87,8 @@ namespace DalamudRepoBrowser
 
         public static void FetchRepoListAsync()
         {
-            repoList.Clear();
+            lock (repoList)
+                repoList.Clear();
 
             PluginLog.LogInformation($"Fetching repositories from {repoMaster}");
 
@@ -119,15 +120,22 @@ namespace DalamudRepoBrowser
                     using var client = new WebClient();
                     var data = client.DownloadString(url);
                     var plugins = JArray.Parse(data);
-                    var list = (from plugin in plugins where (int)plugin["DalamudApiLevel"] == currentAPILevel select ((string)plugin["Name"], (string)plugin["Description"])).ToList();
+                    var list = (from plugin in plugins
+                        where (int)plugin["DalamudApiLevel"] == currentAPILevel
+                        select ((string)plugin["Name"], (string)plugin["Description"], (string)plugin["RepoUrl"]))
+                        .ToList();
+
                     if (list.Count == 0)
                     {
                         PluginLog.LogError($"{url} contains no usable plugins!");
                         return;
                     }
 
-                    sortList = 60;
-                    repoList.Add((url, list));
+                    lock (repoList)
+                    {
+                        sortList = 60;
+                        repoList.Add((url, list));
+                    }
                 }
                 catch { PluginLog.LogError($"Failed loading from {url}"); }
             });

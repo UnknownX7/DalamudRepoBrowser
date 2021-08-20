@@ -1,4 +1,5 @@
-﻿using System.Linq;
+using System.Diagnostics;
+using System.Linq;
 using System.Numerics;
 using Dalamud.Interface;
 using ImGuiNET;
@@ -24,30 +25,57 @@ namespace DalamudRepoBrowser
             ImGui.Separator();
 
             ImGui.BeginChild("RepoList");
-            foreach (var (url, plugins) in DalamudRepoBrowser.repoList)
+            var indent = 32 * ImGuiHelpers.GlobalScale;
+            var spacing = indent / 6;
+            var padding = indent / 8;
+            lock (DalamudRepoBrowser.repoList)
             {
-                var enabled = DalamudRepoBrowser.GetRepoEnabled(url);
-                if (ImGui.Button($"Copy Link##{url}"))
-                    ImGui.SetClipboardText(url);
-                ImGui.SameLine();
-                if (ImGui.Checkbox($"{url}##Enabled", ref enabled))
-                    DalamudRepoBrowser.ToggleRepo(url);
-
-                var indent = 32 * ImGuiHelpers.GlobalScale;
-                ImGui.Indent(indent);
-                for (int i = 0; i < plugins.Count; i++)
+                foreach (var (url, plugins) in DalamudRepoBrowser.repoList)
                 {
-                    var (name, description) = plugins[i];
-                    ImGui.Text(name);
-                    if (ImGui.IsItemHovered())
-                        ImGui.SetTooltip(description);
-                    if (i % 5 != 4)
-                        ImGui.SameLine();
-                }
-                ImGui.Unindent(indent);
+                    var enabled = DalamudRepoBrowser.GetRepoEnabled(url);
+                    if (ImGui.Button($"Copy Link##{url}"))
+                        ImGui.SetClipboardText(url);
+                    ImGui.SameLine();
+                    if (ImGui.Checkbox($"{url}##Enabled", ref enabled))
+                        DalamudRepoBrowser.ToggleRepo(url);
 
-                ImGui.Spacing();
-                ImGui.Separator();
+                    ImGui.Indent(indent);
+                    ImGui.SetWindowFontScale(0.9f);
+                    for (int i = 0; i < plugins.Count; i++)
+                    {
+                        var (name, description, repo) = plugins[i];
+                        // This is dumb, ImGui is dumb
+                        var prevCursor = ImGui.GetCursorPos();
+                        ImGui.Dummy(ImGui.CalcTextSize(name));
+                        var textMin = ImGui.GetItemRectMin();
+                        var textMax = ImGui.GetItemRectMax();
+                        textMin.X -= padding;
+                        textMax.X += padding;
+                        ImGui.GetWindowDrawList().AddRectFilled(textMin, textMax, 0x20FFFFFF, ImGui.GetStyle().FrameRounding);
+                        ImGui.SetCursorPos(prevCursor);
+                        ImGui.Text(name);
+                        if (ImGui.IsItemHovered())
+                        {
+                            var hasRepo = !string.IsNullOrEmpty(repo);
+                            var hasDescription = !string.IsNullOrEmpty(description);
+                            var tooltip = (hasRepo ? repo : string.Empty) + (hasDescription ? (hasRepo ? "\n" + description : description) : string.Empty);
+                            if (!string.IsNullOrEmpty(tooltip))
+                                ImGui.SetTooltip(tooltip);
+
+                            if (hasRepo && ImGui.IsMouseReleased(ImGuiMouseButton.Left) && repo.StartsWith(@"https://"))
+                                Process.Start(repo);
+                        }
+
+                        if (i % 6 == 5) continue;
+                        ImGui.SameLine();
+                        ImGui.SetCursorPosX(ImGui.GetCursorPosX() + spacing);
+                    }
+                    ImGui.SetWindowFontScale(1);
+                    ImGui.Unindent(indent);
+
+                    ImGui.Spacing();
+                    ImGui.Separator();
+                }
             }
             ImGui.EndChild();
 
