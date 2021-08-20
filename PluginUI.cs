@@ -10,6 +10,42 @@ namespace DalamudRepoBrowser
     {
         public static bool isVisible = false;
 
+        public static bool AddHeaderIcon(string id, string icon)
+        {
+            if (ImGui.IsWindowCollapsed()) return false;
+
+            var scale = ImGuiHelpers.GlobalScale;
+            var prevCursorPos = ImGui.GetCursorPos();
+            var buttonSize = new Vector2(20 * scale);
+            var buttonPos = new Vector2(ImGui.GetWindowWidth() - buttonSize.X - 17 * scale - ImGui.GetStyle().FramePadding.X * 2, 2);
+            ImGui.SetCursorPos(buttonPos);
+            var drawList = ImGui.GetWindowDrawList();
+            drawList.PushClipRectFullScreen();
+
+            var pressed = false;
+            ImGui.InvisibleButton(id, buttonSize);
+            var itemMin = ImGui.GetItemRectMin();
+            var itemMax = ImGui.GetItemRectMax();
+            var halfSize = ImGui.GetItemRectSize() / 2;
+            var center = itemMin + halfSize;
+            if (ImGui.IsWindowHovered() && ImGui.IsMouseHoveringRect(itemMin, itemMax, false))
+            {
+                ImGui.GetWindowDrawList().AddCircleFilled(center, halfSize.X, ImGui.GetColorU32(ImGui.IsMouseDown(ImGuiMouseButton.Left) ? ImGuiCol.ButtonActive : ImGuiCol.ButtonHovered));
+                if (ImGui.IsMouseReleased(ImGuiMouseButton.Left))
+                    pressed = true;
+            }
+
+            ImGui.SetCursorPos(buttonPos);
+            ImGui.PushFont(UiBuilder.IconFont);
+            drawList.AddText(UiBuilder.IconFont, ImGui.GetFontSize(), itemMin + halfSize - ImGui.CalcTextSize(icon) / 2 + Vector2.One, 0xffffffff, icon);
+            ImGui.PopFont();
+
+            ImGui.PopClipRect();
+            ImGui.SetCursorPos(prevCursorPos);
+
+            return pressed;
+        }
+
         public static void Draw()
         {
             if (DalamudRepoBrowser.sortList > 0 && --DalamudRepoBrowser.sortList <= 0)
@@ -19,6 +55,11 @@ namespace DalamudRepoBrowser
 
             ImGui.SetNextWindowSize(new Vector2(830, 570) * ImGuiHelpers.GlobalScale);
             ImGui.Begin("Repository Browser", ref isVisible, ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse);
+
+            ImGui.SetWindowFontScale(0.85f);
+            if (AddHeaderIcon("RefreshRepoMaster", FontAwesomeIcon.SyncAlt.ToIconString()))
+                DalamudRepoBrowser.FetchRepoListAsync();
+            ImGui.SetWindowFontScale(1);
 
             ImGui.TextColored(new Vector4(1, 0, 0, 1), "DO NOT INSTALL FROM REPOSITORIES YOU DO NOT TRUST.");
 
