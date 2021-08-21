@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Numerics;
 using Dalamud.Interface;
@@ -8,7 +9,8 @@ namespace DalamudRepoBrowser
 {
     public static class PluginUI
     {
-        public static bool isVisible = true;
+        public static bool isVisible = false;
+        public static bool openSettings = false;
         private static bool _firstOpen = true;
 
         public static bool AddHeaderIcon(string id, string icon)
@@ -56,7 +58,7 @@ namespace DalamudRepoBrowser
 
             if (_firstOpen)
             {
-                DalamudRepoBrowser.FetchRepoListAsync();
+                DalamudRepoBrowser.FetchRepoMasters();
                 _firstOpen = false;
             }
 
@@ -65,10 +67,29 @@ namespace DalamudRepoBrowser
 
             ImGui.SetWindowFontScale(0.85f);
             if (AddHeaderIcon("RefreshRepoMaster", FontAwesomeIcon.SyncAlt.ToIconString()))
-                DalamudRepoBrowser.FetchRepoListAsync();
+                DalamudRepoBrowser.FetchRepoMasters();
             ImGui.SetWindowFontScale(1);
 
+            ImGui.PushFont(UiBuilder.IconFont);
+            if (ImGui.Button(FontAwesomeIcon.Wrench.ToIconString()))
+                openSettings ^= true;
+            ImGui.PopFont();
+            ImGui.SameLine();
             ImGui.TextColored(new Vector4(1, 0, 0, 1), "DO NOT INSTALL FROM REPOSITORIES YOU DO NOT TRUST.");
+
+            if (openSettings)
+            {
+                var height = ImGui.GetFontSize() * Math.Min(DalamudRepoBrowser.Config.RepoMasters.Split('\n').Length + 1, 7) + ImGui.GetStyle().FramePadding.Y * 2;
+                if (ImGui.InputTextMultiline("##RepoMasters", ref DalamudRepoBrowser.Config.RepoMasters, 65535, new Vector2(-1, height)))
+                {
+                    if (string.IsNullOrWhiteSpace(DalamudRepoBrowser.Config.RepoMasters))
+                        DalamudRepoBrowser.Config.RepoMasters = Configuration.DefaultRepoMaster;
+                    DalamudRepoBrowser.Config.Save();
+                }
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip("A list of repomaster.json to fetch, separated by newlines. Make sure to click the refresh button in the corner after editing this." +
+                        "\nIf needed, erasing everything from this box will restore this to the default.");
+            }
 
             ImGui.Separator();
 

@@ -22,7 +22,6 @@ namespace DalamudRepoBrowser
         public static Configuration Config { get; private set; }
         public static DalamudRepoBrowser Plugin { get; private set; }
 
-        public const string repoMaster = @"https://raw.githubusercontent.com/UnknownX7/DalamudRepoBrowser/master/repomaster.json";
         public static int currentAPILevel;
         public static List<ThirdRepoSetting> dalamudRepoSettings;
         public static List<(string url, List<(string name, string description, string repo)> plugins)> repoList = new();
@@ -107,11 +106,19 @@ namespace DalamudRepoBrowser
             }
         }
 
-        public static void FetchRepoListAsync()
+        public static void FetchRepoMasters()
         {
             lock (repoList)
                 repoList.Clear();
+            foreach (var repoMaster in Config.RepoMasters.Split('\n'))
+            {
+                if (!string.IsNullOrWhiteSpace(repoMaster))
+                    FetchRepoListAsync(repoMaster);
+            }
+        }
 
+        public static void FetchRepoListAsync(string repoMaster)
+        {
             PluginLog.LogInformation($"Fetching repositories from {repoMaster}");
 
             Task.Run(() =>
@@ -122,18 +129,18 @@ namespace DalamudRepoBrowser
                     var data = client.DownloadString(repoMaster);
                     var repos = JsonConvert.DeserializeObject<List<string>>(data);
 
-                    PluginLog.LogInformation($"Fetched {repos.Count} repositories.");
+                    PluginLog.LogInformation($"Fetched {repos.Count} repositories from {repoMaster}");
 
                     foreach (var url in repos)
                         FetchRepoPluginsAsync(url);
                 }
-                catch { PluginLog.LogError("Failed loading repomaster!"); }
+                catch { PluginLog.LogError($"Failed loading repositories from {repoMaster}"); }
             });
         }
 
         public static void FetchRepoPluginsAsync(string url)
         {
-            PluginLog.LogInformation($"Fetching plugin list from {url}");
+            PluginLog.LogInformation($"Fetching plugins from {url}");
 
             Task.Run(() =>
             {
@@ -155,11 +162,17 @@ namespace DalamudRepoBrowser
 
                     lock (repoList)
                     {
+                        if (repoList.FindIndex(x => x.url == url) >= 0)
+                        {
+                            PluginLog.LogError($"{url} has already been fetched");
+                            return;
+                        }
+
                         sortList = 60;
                         repoList.Add((url, list));
                     }
                 }
-                catch { PluginLog.LogError($"Failed loading from {url}"); }
+                catch { PluginLog.LogError($"Failed loading plugins from {url}"); }
             });
         }
 
@@ -175,7 +188,11 @@ namespace DalamudRepoBrowser
 
         [Command("/xlrepos")]
         [HelpMessage("Opens the repository browser.")]
-        private void OnXLRepos(string command, string argument) => PluginUI.isVisible ^= true;
+        private void OnXLRepos(string command, string argument)
+        {
+            PluginUI.isVisible ^= true;
+            PluginUI.openSettings = false;
+        }
 
         public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[DalamudRepoBrowser] {message}");
         public static void PrintError(string message) => Interface.Framework.Gui.Chat.PrintError($"[DalamudRepoBrowser] {message}");
