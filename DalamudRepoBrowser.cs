@@ -25,7 +25,10 @@ namespace DalamudRepoBrowser
         public static int currentAPILevel;
         public static List<ThirdRepoSetting> dalamudRepoSettings;
         public static List<(string url, List<(string name, string description, string repo)> plugins)> repoList = new();
+        public static HashSet<string> fetchedRepos = new();
         public static int sortList;
+
+        public static int _fetch = 0;
 
         private static object _dalamudPluginManager;
         private static object _dalamudPluginRepository;
@@ -109,7 +112,14 @@ namespace DalamudRepoBrowser
         public static void FetchRepoMasters()
         {
             lock (repoList)
+            {
+                _fetch++;
                 repoList.Clear();
+            }
+
+            lock (fetchedRepos)
+                fetchedRepos.Clear();
+
             foreach (var repoMaster in Config.RepoMasters.Split('\n'))
             {
                 if (!string.IsNullOrWhiteSpace(repoMaster))
@@ -121,6 +131,7 @@ namespace DalamudRepoBrowser
         {
             PluginLog.LogInformation($"Fetching repositories from {repoMaster}");
 
+            var startedFetch = _fetch;
             Task.Run(() =>
             {
                 try
@@ -128,6 +139,8 @@ namespace DalamudRepoBrowser
                     using var client = new WebClient();
                     var data = client.DownloadString(repoMaster);
                     var repos = JsonConvert.DeserializeObject<List<string>>(data);
+
+                    if (_fetch != startedFetch) return;
 
                     PluginLog.LogInformation($"Fetched {repos.Count} repositories from {repoMaster}");
 
@@ -140,8 +153,18 @@ namespace DalamudRepoBrowser
 
         public static void FetchRepoPluginsAsync(string url)
         {
+            lock (fetchedRepos)
+            {
+                if (!fetchedRepos.Add(url))
+                {
+                    PluginLog.LogError($"{url} has already been fetched");
+                    return;
+                }
+            }
+
             PluginLog.LogInformation($"Fetching plugins from {url}");
 
+            var startedFetch = _fetch;
             Task.Run(() =>
             {
                 try
@@ -162,11 +185,7 @@ namespace DalamudRepoBrowser
 
                     lock (repoList)
                     {
-                        if (repoList.FindIndex(x => x.url == url) >= 0)
-                        {
-                            PluginLog.LogError($"{url} has already been fetched");
-                            return;
-                        }
+                        if (_fetch != startedFetch) return;
 
                         sortList = 60;
                         repoList.Add((url, list));
