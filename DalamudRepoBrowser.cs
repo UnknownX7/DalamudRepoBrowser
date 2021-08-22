@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 [assembly: AssemblyTitle("DalamudRepoBrowser")]
-[assembly: AssemblyVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.0.1")]
 
 namespace DalamudRepoBrowser
 {
@@ -23,7 +23,14 @@ namespace DalamudRepoBrowser
         public static DalamudRepoBrowser Plugin { get; private set; }
 
         public static int currentAPILevel;
-        public static List<ThirdRepoSetting> dalamudRepoSettings;
+        public static PropertyInfo dalamudRepoSettingsProperty;
+        private static List<ThirdRepoSetting> _dalamudRepoSettings;
+        public static List<ThirdRepoSetting> DalamudRepoSettings
+        {
+            get => _dalamudRepoSettings ??= (List<ThirdRepoSetting>)dalamudRepoSettingsProperty?.GetValue(_dalamudConfig);
+            set => _dalamudRepoSettings = value;
+        }
+
         public static List<(string url, List<(string name, string description, string repo)> plugins)> repoList = new();
         public static HashSet<string> fetchedRepos = new();
         public static int sortList;
@@ -82,14 +89,13 @@ namespace DalamudRepoBrowser
             _configSave = _dalamudConfig?.GetType()
                 .GetMethod("Save", BindingFlags.Instance | BindingFlags.Public);
 
-            dalamudRepoSettings = (List<ThirdRepoSetting>)_dalamudConfig?.GetType()
-                .GetProperty("ThirdRepoList", BindingFlags.Instance | BindingFlags.Public)
-                ?.GetValue(_dalamudConfig);
+            dalamudRepoSettingsProperty = _dalamudConfig?.GetType()
+                .GetProperty("ThirdRepoList", BindingFlags.Instance | BindingFlags.Public);
         }
 
         public static void AddRepo(string url)
         {
-            dalamudRepoSettings.Add(new ThirdRepoSetting { Url = url, IsEnabled = true });
+            DalamudRepoSettings.Add(new ThirdRepoSetting { Url = url, IsEnabled = true });
             SaveDalamudConfig();
             ReloadPluginMasters();
         }
@@ -98,7 +104,7 @@ namespace DalamudRepoBrowser
         {
             try
             {
-                var repo = dalamudRepoSettings.First(x => x.Url == url);
+                var repo = DalamudRepoSettings.First(x => x.Url == url);
                 repo.IsEnabled ^= true;
                 SaveDalamudConfig();
                 ReloadPluginMasters();
@@ -197,8 +203,8 @@ namespace DalamudRepoBrowser
 
         public static bool GetRepoEnabled(string url)
         {
-            var i = dalamudRepoSettings.FindIndex(x => x.Url == url);
-            return i >= 0 && dalamudRepoSettings[i].IsEnabled;
+            var i = DalamudRepoSettings.FindIndex(x => x.Url == url);
+            return i >= 0 && DalamudRepoSettings[i].IsEnabled;
         }
 
         public static void ReloadPluginMasters() => _pluginReload?.Invoke(_dalamudPluginRepository, null);

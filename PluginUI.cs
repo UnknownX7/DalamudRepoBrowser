@@ -51,6 +51,8 @@ namespace DalamudRepoBrowser
 
         public static void Draw()
         {
+            DalamudRepoBrowser.DalamudRepoSettings = null;
+
             if (DalamudRepoBrowser.sortList > 0 && --DalamudRepoBrowser.sortList <= 0)
                 DalamudRepoBrowser.repoList = DalamudRepoBrowser.repoList.OrderBy(x => x.url).ToList();
 
