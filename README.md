@@ -16,4 +16,4 @@ However, if it also automated going to the marketboard and put the crafted items
 The last guideline will be decided on a case by case basis. If you want to dispute a decision then feel free to open an issue.
 Alternatively, you can add another repomaster by using the wrench icon.
 
-To install, add `https://raw.githubusercontent.com/UnknownX7/DalamudPluginRepo/master/pluginmaster.json` under "Custom Plugin Repositories" in the "Experimental" tab of Dalamud's in game settings, and then install it through the plugin installer.
+For installation instructions, please see my [custom plugin repository](https://github.com/UnknownX7/DalamudPluginRepo).
