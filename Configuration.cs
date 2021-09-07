@@ -1,6 +1,4 @@
 ﻿using Dalamud.Configuration;
-using Dalamud.Plugin;
-using Newtonsoft.Json;
 
 namespace DalamudRepoBrowser
 {
@@ -11,16 +9,8 @@ namespace DalamudRepoBrowser
         public int Version { get; set; }
         public string RepoMasters = DefaultRepoMaster;
 
-        [JsonIgnore] private DalamudPluginInterface pluginInterface;
+        public void Initialize() { }
 
-        public void Initialize(DalamudPluginInterface p)
-        {
-            pluginInterface = p;
-        }
-
-        public void Save()
-        {
-            pluginInterface.SavePluginConfig(this);
-        }
+        public void Save() => DalamudApi.PluginInterface.SavePluginConfig(this);
     }
 }

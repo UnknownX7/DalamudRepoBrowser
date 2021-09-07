@@ -1,113 +1,123 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
-using Dalamud.Configuration;
+using Dalamud.Logging;
 using Dalamud.Plugin;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-
-[assembly: AssemblyTitle("DalamudRepoBrowser")]
-[assembly: AssemblyVersion("1.0.0.1")]
 
 namespace DalamudRepoBrowser
 {
     public class DalamudRepoBrowser : IDalamudPlugin
     {
         public string Name => "DalamudRepoBrowser";
-        public static DalamudPluginInterface Interface { get; private set; }
-        private PluginCommandManager commandManager;
-        public static Configuration Config { get; private set; }
         public static DalamudRepoBrowser Plugin { get; private set; }
+        public static Configuration Config { get; private set; }
 
         public static int currentAPILevel;
-        public static PropertyInfo dalamudRepoSettingsProperty;
-        private static List<ThirdRepoSetting> _dalamudRepoSettings;
-        public static List<ThirdRepoSetting> DalamudRepoSettings
+        private static PropertyInfo dalamudRepoSettingsProperty;
+        private static IEnumerable dalamudRepoSettings;
+        public static IEnumerable DalamudRepoSettings
         {
-            get => _dalamudRepoSettings ??= (List<ThirdRepoSetting>)dalamudRepoSettingsProperty?.GetValue(_dalamudConfig);
-            set => _dalamudRepoSettings = value;
+            get => dalamudRepoSettings ??= (IEnumerable)dalamudRepoSettingsProperty?.GetValue(dalamudConfig);
+            set => dalamudRepoSettings = value;
         }
 
         public static List<(string url, List<(string name, string description, string repo)> plugins)> repoList = new();
         public static HashSet<string> fetchedRepos = new();
         public static int sortList;
 
-        public static int _fetch = 0;
+        private static int fetch = 0;
 
-        private static object _dalamudPluginManager;
-        private static object _dalamudPluginRepository;
-        private static object _dalamudConfig;
-        private static MethodInfo _pluginReload;
-        private static MethodInfo _configSave;
+        private static Assembly dalamudAssembly;
+        private static Type dalamudServiceType;
+        private static Type thirdPartyRepoSettingsType;
+        private static object dalamudPluginManager;
+        private static object dalamudConfig;
+        private static MethodInfo pluginReload;
+        private static MethodInfo configSave;
 
-        public void Initialize(DalamudPluginInterface p)
+        public DalamudRepoBrowser(DalamudPluginInterface pluginInterface)
         {
             Plugin = this;
-            Interface = p;
+            DalamudApi.Initialize(this, pluginInterface);
 
-            Config = (Configuration)Interface.GetPluginConfig() ?? new();
-            Config.Initialize(Interface);
-
-            commandManager = new();
+            Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
+            Config.Initialize();
 
             try
             {
                 ReflectRepos();
-                Interface.UiBuilder.OnBuildUi += PluginUI.Draw;
+                DalamudApi.PluginInterface.UiBuilder.Draw += PluginUI.Draw;
             }
             catch (Exception e) { PluginLog.LogError(e, "Failed to load."); }
         }
 
+
+        private static object GetService(string type)
+        {
+            var getType = dalamudAssembly.GetType(type);
+            if (getType == null) return null;
+            var getService = dalamudServiceType.MakeGenericType(getType).GetMethod("Get");
+            return getService?.Invoke(null, null);
+        }
+
         private static void ReflectRepos()
         {
-            var dalamud = (Dalamud.Dalamud)Interface.GetType()
-                .GetField("dalamud", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.GetValue(Interface);
+            dalamudAssembly = Assembly.GetAssembly(typeof(DalamudPluginInterface));
+            dalamudServiceType = dalamudAssembly?.GetType("Dalamud.Service`1");
+            thirdPartyRepoSettingsType = dalamudAssembly?.GetType("Dalamud.Configuration.ThirdPartyRepoSettings");
+            if (dalamudServiceType == null || thirdPartyRepoSettingsType == null) throw new NullReferenceException();
 
-            _dalamudPluginManager = dalamud?.GetType()
-                .GetProperty("PluginManager", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.GetValue(dalamud);
+            dalamudPluginManager = GetService("Dalamud.Plugin.Internal.PluginManager");
+            dalamudConfig = GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
 
-            currentAPILevel = (int)_dalamudPluginManager?.GetType()
+            currentAPILevel = (int)dalamudPluginManager?.GetType()
                 .GetField("DalamudApiLevel", BindingFlags.Static | BindingFlags.Public)
-                ?.GetValue(_dalamudPluginManager);
+                ?.GetValue(dalamudPluginManager)!;
 
-            _dalamudPluginRepository = dalamud?.GetType()
-                .GetProperty("PluginRepository", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.GetValue(dalamud);
-
-            _pluginReload = _dalamudPluginRepository?.GetType()
-                .GetMethod("ReloadPluginMasterAsync", BindingFlags.Instance | BindingFlags.Public);
-
-            _dalamudConfig = dalamud?.GetType()
-                .GetProperty("Configuration", BindingFlags.Instance | BindingFlags.NonPublic)
-                ?.GetValue(dalamud);
-
-            _configSave = _dalamudConfig?.GetType()
-                .GetMethod("Save", BindingFlags.Instance | BindingFlags.Public);
-
-            dalamudRepoSettingsProperty = _dalamudConfig?.GetType()
+            dalamudRepoSettingsProperty = dalamudConfig?.GetType()
                 .GetProperty("ThirdRepoList", BindingFlags.Instance | BindingFlags.Public);
+
+            pluginReload = dalamudPluginManager?.GetType()
+                .GetMethod("SetPluginReposFromConfig", BindingFlags.Instance | BindingFlags.Public);
+
+            configSave = dalamudConfig?.GetType()
+                .GetMethod("Save", BindingFlags.Instance | BindingFlags.Public);
         }
 
         public static void AddRepo(string url)
         {
-            DalamudRepoSettings.Add(new ThirdRepoSetting { Url = url, IsEnabled = true });
+            var add = DalamudRepoSettings?.GetType()
+                .GetMethod("Add", BindingFlags.Instance | BindingFlags.Public);
+            if (add == null) return;
+
+            var obj = Activator.CreateInstance(thirdPartyRepoSettingsType);
+            if (obj == null) return;
+
+            _ = new RepoSettings(obj)
+            {
+                Url = url,
+                IsEnabled = true
+            };
+
+            add.Invoke(DalamudRepoSettings, new[] { obj });
             SaveDalamudConfig();
             ReloadPluginMasters();
         }
+
+        public static RepoSettings GetRepoSettings(string url) => (from object obj in DalamudRepoSettings select new RepoSettings(obj)).FirstOrDefault(repoSettings => repoSettings.Url == url);
 
         public static void ToggleRepo(string url)
         {
             try
             {
-                var repo = DalamudRepoSettings.First(x => x.Url == url);
+                var repo = GetRepoSettings(url);
                 repo.IsEnabled ^= true;
-                SaveDalamudConfig();
-                ReloadPluginMasters();
             }
             catch
             {
@@ -119,7 +129,7 @@ namespace DalamudRepoBrowser
         {
             lock (repoList)
             {
-                _fetch++;
+                fetch++;
                 repoList.Clear();
             }
 
@@ -137,7 +147,7 @@ namespace DalamudRepoBrowser
         {
             PluginLog.LogInformation($"Fetching repositories from {repoMaster}");
 
-            var startedFetch = _fetch;
+            var startedFetch = fetch;
             Task.Run(() =>
             {
                 try
@@ -146,7 +156,7 @@ namespace DalamudRepoBrowser
                     var data = client.DownloadString(repoMaster);
                     var repos = JsonConvert.DeserializeObject<List<string>>(data);
 
-                    if (_fetch != startedFetch) return;
+                    if (fetch != startedFetch) return;
 
                     PluginLog.LogInformation($"Fetched {repos.Count} repositories from {repoMaster}");
 
@@ -170,7 +180,7 @@ namespace DalamudRepoBrowser
 
             PluginLog.LogInformation($"Fetching plugins from {url}");
 
-            var startedFetch = _fetch;
+            var startedFetch = fetch;
             Task.Run(() =>
             {
                 try
@@ -191,7 +201,7 @@ namespace DalamudRepoBrowser
 
                     lock (repoList)
                     {
-                        if (_fetch != startedFetch) return;
+                        if (fetch != startedFetch) return;
 
                         sortList = 60;
                         repoList.Add((url, list));
@@ -203,13 +213,13 @@ namespace DalamudRepoBrowser
 
         public static bool GetRepoEnabled(string url)
         {
-            var i = DalamudRepoSettings.FindIndex(x => x.Url == url);
-            return i >= 0 && DalamudRepoSettings[i].IsEnabled;
+            var repo = GetRepoSettings(url);
+            return repo is { IsEnabled: true };
         }
 
-        public static void ReloadPluginMasters() => _pluginReload?.Invoke(_dalamudPluginRepository, null);
+        public static void ReloadPluginMasters() => pluginReload?.Invoke(dalamudPluginManager, new object[] { true });
 
-        public static void SaveDalamudConfig() => _configSave?.Invoke(_dalamudConfig, null);
+        public static void SaveDalamudConfig() => configSave?.Invoke(dalamudConfig, null);
 
         [Command("/xlrepos")]
         [HelpMessage("Opens the repository browser.")]
@@ -219,19 +229,16 @@ namespace DalamudRepoBrowser
             PluginUI.openSettings = false;
         }
 
-        public static void PrintEcho(string message) => Interface.Framework.Gui.Chat.Print($"[DalamudRepoBrowser] {message}");
-        public static void PrintError(string message) => Interface.Framework.Gui.Chat.PrintError($"[DalamudRepoBrowser] {message}");
+        public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[DalamudRepoBrowser] {message}");
+        public static void PrintError(string message) => DalamudApi.ChatGui.PrintError($"[DalamudRepoBrowser] {message}");
 
         #region IDisposable Support
         protected virtual void Dispose(bool disposing)
         {
             if (!disposing) return;
-            commandManager.Dispose();
-
-            Interface.UiBuilder.OnBuildUi -= PluginUI.Draw;
-
-            Interface.SavePluginConfig(Config);
-            Interface.Dispose();
+            Config.Save();
+            DalamudApi.PluginInterface.UiBuilder.Draw -= PluginUI.Draw;
+            DalamudApi.Dispose();
         }
 
         public void Dispose()
