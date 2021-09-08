@@ -11,7 +11,7 @@ namespace DalamudRepoBrowser
     {
         public static bool isVisible = false;
         public static bool openSettings = false;
-        private static bool _firstOpen = true;
+        private static bool firstOpen = true;
 
         public static bool AddHeaderIcon(string id, string icon)
         {
@@ -58,10 +58,10 @@ namespace DalamudRepoBrowser
 
             if (!isVisible) return;
 
-            if (_firstOpen)
+            if (firstOpen)
             {
                 DalamudRepoBrowser.FetchRepoMasters();
-                _firstOpen = false;
+                firstOpen = false;
             }
 
             ImGui.SetNextWindowSize(new Vector2(830, 570) * ImGuiHelpers.GlobalScale);
