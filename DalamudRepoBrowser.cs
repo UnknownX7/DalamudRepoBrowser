@@ -195,7 +195,7 @@ namespace DalamudRepoBrowser
 
                     if (list.Count == 0)
                     {
-                        PluginLog.LogError($"{url} contains no usable plugins!");
+                        PluginLog.LogInformation($"{url} contains no usable plugins!");
                         return;
                     }
 
