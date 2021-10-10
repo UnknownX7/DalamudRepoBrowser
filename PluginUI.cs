@@ -134,7 +134,11 @@ namespace DalamudRepoBrowser
                                 ImGui.SetTooltip(tooltip);
 
                             if (hasRepo && ImGui.IsMouseReleased(ImGuiMouseButton.Left) && repo.StartsWith(@"http"))
-                                Process.Start(repo);
+                                Process.Start(new ProcessStartInfo
+                                {
+                                    FileName = repo,
+                                    UseShellExecute = true
+                                });
                         }
 
                         if (i % 6 == 5) continue;
