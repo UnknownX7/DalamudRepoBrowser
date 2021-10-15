@@ -27,7 +27,7 @@ namespace DalamudRepoBrowser
             set => dalamudRepoSettings = value;
         }
 
-        public static List<(string url, List<(string name, string description, string repo)> plugins)> repoList = new();
+        public static List<(string url, List<(string name, string description, string repo, bool valid)> plugins)> repoList = new();
         public static HashSet<string> fetchedRepos = new();
         public static int sortList;
 
@@ -189,8 +189,7 @@ namespace DalamudRepoBrowser
                     var data = client.DownloadString(url);
                     var plugins = JArray.Parse(data);
                     var list = (from plugin in plugins
-                        where (int)plugin["DalamudApiLevel"] == currentAPILevel
-                        select ((string)plugin["Name"], (string)plugin["Description"], (string)plugin["RepoUrl"]))
+                        select ((string)plugin["Name"], (string)plugin["Description"], (string)plugin["RepoUrl"], (int)plugin["DalamudApiLevel"] == currentAPILevel))
                         .ToList();
 
                     if (list.Count == 0)

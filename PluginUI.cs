@@ -89,8 +89,8 @@ namespace DalamudRepoBrowser
                     DalamudRepoBrowser.Config.Save();
                 }
                 if (ImGui.IsItemHovered())
-                    ImGui.SetTooltip("A list of repomaster.json to fetch, separated by newlines. Make sure to click the refresh button in the corner after editing this." +
-                        "\nIf needed, erasing everything from this box will restore this to the default.");
+                    ImGui.SetTooltip("A list of repomaster.json to fetch, separated by newlines. Make sure to click the refresh button in the corner after editing this.\n" +
+                        "If needed, erasing everything from this box will restore this to the default.");
             }
 
             ImGui.Separator();
@@ -114,7 +114,7 @@ namespace DalamudRepoBrowser
                     ImGui.SetWindowFontScale(0.9f);
                     for (int i = 0; i < plugins.Count; i++)
                     {
-                        var (name, description, repo) = plugins[i];
+                        var (name, description, repo, valid) = plugins[i];
                         // This is dumb, ImGui is dumb
                         var prevCursor = ImGui.GetCursorPos();
                         ImGui.Dummy(ImGui.CalcTextSize(name));
@@ -122,8 +122,18 @@ namespace DalamudRepoBrowser
                         var textMax = ImGui.GetItemRectMax();
                         textMin.X -= padding;
                         textMax.X += padding;
-                        ImGui.GetWindowDrawList().AddRectFilled(textMin, textMax, 0x20FFFFFF, ImGui.GetStyle().FrameRounding);
+                        var drawList = ImGui.GetWindowDrawList();
+                        drawList.AddRectFilled(textMin, textMax, (uint)(valid ? 0x20FFFFFF : 0x200000FF), ImGui.GetStyle().FrameRounding);
                         ImGui.SetCursorPos(prevCursor);
+
+                        if (!valid)
+                        {
+                            const uint color = 0xA00000FF;
+                            var thickness = 2 * ImGuiHelpers.GlobalScale;
+                            drawList.AddLine(textMin, textMax, color, thickness);
+                            drawList.AddLine(new Vector2(textMin.X, textMax.Y), new Vector2(textMax.X, textMin.Y), color, thickness);
+                        }
+
                         ImGui.Text(name);
                         if (ImGui.IsItemHovered())
                         {
