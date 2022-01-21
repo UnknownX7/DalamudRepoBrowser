@@ -1,13 +1,16 @@
-﻿using Dalamud.Configuration;
+﻿using System.Collections.Generic;
+using Dalamud.Configuration;
 
 namespace DalamudRepoBrowser
 {
     public class Configuration : IPluginConfiguration
     {
-        public const string DefaultRepoMaster = @"https://raw.githubusercontent.com/UnknownX7/DalamudRepoBrowser/master/repomaster.json";
-
         public int Version { get; set; }
-        public string RepoMasters = DefaultRepoMaster;
+        public string RepoMasters = string.Empty;
+        public bool HideEnabledRepos = false;
+        public int RepoSort = 0;
+        public int ShowOutdated = 0;
+        public HashSet<string> SeenRepos = new();
 
         public void Initialize() { }
 

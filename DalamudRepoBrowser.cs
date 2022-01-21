@@ -7,11 +7,72 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Dalamud.Logging;
 using Dalamud.Plugin;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace DalamudRepoBrowser
 {
+    public struct RepoInfo
+    {
+        public readonly string owner;
+        public readonly string fullName;
+        public readonly long lastUpdated;
+        public readonly uint stars;
+        public readonly byte apiLevel;
+        public readonly string url;
+
+        public RepoInfo(JToken json)
+        {
+            owner = (string)json["owner"] ?? string.Empty;
+            fullName = (string)json["fullName"] ?? string.Empty;
+            lastUpdated = (long?)json["lastUpdated"] ?? 0;
+            stars = (uint?)json["stargazersCount"] ?? 0;
+            apiLevel = (byte?)json["dalamudApiLevel"] ?? 0;
+            url = (string)json["pluginMasterUrl"] ?? string.Empty;
+        }
+    }
+
+    public struct PluginInfo
+    {
+        public readonly string name;
+        public readonly string description;
+        public readonly string punchline;
+        public readonly string repoURL;
+        public readonly byte apiLevel;
+        public readonly List<string> tags;
+        public readonly List<string> categoryTags;
+
+        public PluginInfo(JToken json)
+        {
+            name = (string)json["Name"] ?? string.Empty;
+            description = (string)json["Description"] ?? string.Empty;
+            punchline = (string)json["Punchline"] ?? string.Empty;
+            repoURL = (string)json["RepoUrl"] ?? string.Empty;
+            apiLevel = (byte?)json["DalamudApiLevel"] ?? 0;
+            tags = new();
+            categoryTags = new();
+
+            var tagsArray = (JArray)json["Tags"];
+            if (tagsArray != null)
+            {
+                foreach (var t in tagsArray)
+                {
+                    var tag = (string)t;
+                    if (tag == null) continue;
+                    tags.Add(tag);
+                }
+            }
+
+            var categoryTagsArray = (JArray)json["CategoryTags"];
+            if (categoryTagsArray == null) return;
+            foreach (var t in categoryTagsArray)
+            {
+                var tag = (string)t;
+                if (tag == null) continue;
+                categoryTags.Add(tag);
+            }
+        }
+    }
+
     public class DalamudRepoBrowser : IDalamudPlugin
     {
         public string Name => "DalamudRepoBrowser";
@@ -27,9 +88,11 @@ namespace DalamudRepoBrowser
             set => dalamudRepoSettings = value;
         }
 
-        public static List<(string url, List<(string name, string description, string repo, bool valid)> plugins)> repoList = new();
+        public static readonly string repoMaster = @"https://api.kalilistic.io/dalamud/repos";
+        public static List<(RepoInfo repo, List<PluginInfo> plugins)> repoList = new();
         public static HashSet<string> fetchedRepos = new();
         public static int sortList;
+        public static HashSet<string> prevSeenRepos = new();
 
         private static int fetch = 0;
 
@@ -53,6 +116,7 @@ namespace DalamudRepoBrowser
             {
                 ReflectRepos();
                 DalamudApi.PluginInterface.UiBuilder.Draw += PluginUI.Draw;
+                prevSeenRepos = Config.SeenRepos.ToHashSet();
             }
             catch (Exception e) { PluginLog.LogError(e, "Failed to load."); }
         }
@@ -84,10 +148,12 @@ namespace DalamudRepoBrowser
                 .GetProperty("ThirdRepoList", BindingFlags.Instance | BindingFlags.Public);
 
             pluginReload = dalamudPluginManager?.GetType()
-                .GetMethod("SetPluginReposFromConfig", BindingFlags.Instance | BindingFlags.Public);
+                .GetMethod("SetPluginReposFromConfigAsync", BindingFlags.Instance | BindingFlags.Public);
 
             configSave = dalamudConfig?.GetType()
                 .GetMethod("Save", BindingFlags.Instance | BindingFlags.Public);
+
+            if (dalamudPluginManager == null || dalamudConfig == null || dalamudRepoSettingsProperty == null || pluginReload == null || configSave == null) throw new NullReferenceException();
         }
 
         public static void AddRepo(string url)
@@ -136,11 +202,7 @@ namespace DalamudRepoBrowser
             lock (fetchedRepos)
                 fetchedRepos.Clear();
 
-            foreach (var repoMaster in Config.RepoMasters.Split('\n'))
-            {
-                if (!string.IsNullOrWhiteSpace(repoMaster))
-                    FetchRepoListAsync(repoMaster);
-            }
+            FetchRepoListAsync(repoMaster);
         }
 
         public static void FetchRepoListAsync(string repoMaster)
@@ -154,31 +216,43 @@ namespace DalamudRepoBrowser
                 {
                     using var client = new WebClient();
                     var data = client.DownloadString(repoMaster);
-                    var repos = JsonConvert.DeserializeObject<List<string>>(data);
+                    var repos = JArray.Parse(data);
 
                     if (fetch != startedFetch) return;
 
                     PluginLog.LogInformation($"Fetched {repos.Count} repositories from {repoMaster}");
 
-                    foreach (var url in repos)
-                        FetchRepoPluginsAsync(url);
+                    foreach (var info in repos)
+                        FetchRepoPluginsAsync(info);
                 }
                 catch { PluginLog.LogError($"Failed loading repositories from {repoMaster}"); }
             });
         }
 
-        public static void FetchRepoPluginsAsync(string url)
+        public static void FetchRepoPluginsAsync(JToken json)
         {
+            RepoInfo info;
+
+            try
+            {
+                info = new RepoInfo(json);
+            }
+            catch
+            {
+                PluginLog.LogError($"Failed parsing {(string)json["pluginMasterUrl"]}.");
+                return;
+            }
+
             lock (fetchedRepos)
             {
-                if (!fetchedRepos.Add(url))
+                if (!fetchedRepos.Add(info.url))
                 {
-                    PluginLog.LogError($"{url} has already been fetched");
+                    PluginLog.LogError($"{info.url} has already been fetched");
                     return;
                 }
             }
 
-            PluginLog.LogInformation($"Fetching plugins from {url}");
+            PluginLog.LogInformation($"Fetching plugins from {info.url}");
 
             var startedFetch = fetch;
             Task.Run(() =>
@@ -186,15 +260,13 @@ namespace DalamudRepoBrowser
                 try
                 {
                     using var client = new WebClient();
-                    var data = client.DownloadString(url);
+                    var data = client.DownloadString(info.url);
                     var plugins = JArray.Parse(data);
-                    var list = (from plugin in plugins
-                        select ((string)plugin["Name"], (string)plugin["Description"], (string)plugin["RepoUrl"], (int)plugin["DalamudApiLevel"] == currentAPILevel))
-                        .ToList();
+                    var list = (from plugin in plugins select new PluginInfo(plugin)).ToList();
 
                     if (list.Count == 0)
                     {
-                        PluginLog.LogInformation($"{url} contains no usable plugins!");
+                        PluginLog.LogInformation($"{info.url} contains no usable plugins!");
                         return;
                     }
 
@@ -203,10 +275,10 @@ namespace DalamudRepoBrowser
                         if (fetch != startedFetch) return;
 
                         sortList = 60;
-                        repoList.Add((url, list));
+                        repoList.Add((info, list));
                     }
                 }
-                catch { PluginLog.LogError($"Failed loading plugins from {url}"); }
+                catch { PluginLog.LogError($"Failed loading plugins from {info.url}"); }
             });
         }
 
