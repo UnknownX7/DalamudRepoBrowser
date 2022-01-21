@@ -112,6 +112,8 @@ namespace DalamudRepoBrowser
             Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
             Config.Initialize();
 
+            DalamudApi.PluginInterface.UiBuilder.OpenConfigUi += ToggleConfig;
+
             try
             {
                 ReflectRepos();
@@ -292,13 +294,15 @@ namespace DalamudRepoBrowser
 
         public static void SaveDalamudConfig() => configSave?.Invoke(dalamudConfig, null);
 
-        [Command("/xlrepos")]
-        [HelpMessage("Opens the repository browser.")]
-        private void OnXLRepos(string command, string argument)
+        private static void ToggleConfig()
         {
             PluginUI.isVisible ^= true;
             PluginUI.openSettings = false;
         }
+
+        [Command("/xlrepos")]
+        [HelpMessage("Opens the repository browser.")]
+        private void ToggleConfig(string command, string argument) => ToggleConfig();
 
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[DalamudRepoBrowser] {message}");
         public static void PrintError(string message) => DalamudApi.ChatGui.PrintError($"[DalamudRepoBrowser] {message}");
@@ -309,6 +313,7 @@ namespace DalamudRepoBrowser
             if (!disposing) return;
             Config.Save();
             DalamudApi.PluginInterface.UiBuilder.Draw -= PluginUI.Draw;
+            DalamudApi.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
             DalamudApi.Dispose();
         }
 
