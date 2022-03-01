@@ -162,7 +162,9 @@ namespace DalamudRepoBrowser
                 ImGui.NextColumn();
                 ImGui.TextUnformatted("");
                 save |= ImGui.Checkbox("Hide Enabled Repos", ref DalamudRepoBrowser.Config.HideEnabledRepos);
-
+                ImGui.TextUnformatted("");
+                save |= ImGui.Checkbox("Hide Branches", ref DalamudRepoBrowser.Config.HideBranches);
+                
                 ImGui.Columns(1);
 
                 if (save)
@@ -180,7 +182,7 @@ namespace DalamudRepoBrowser
                 var doSearch = !string.IsNullOrEmpty(searchText);
                 foreach (var (repoInfo, plugins) in DalamudRepoBrowser.repoList)
                 {
-                    if (DalamudRepoBrowser.Config.ShowOutdated < 2 && repoInfo.apiLevel != DalamudRepoBrowser.currentAPILevel || doSearch && !search.Contains((repoInfo, plugins))) continue;
+                    if (DalamudRepoBrowser.Config.HideBranches && !repoInfo.isDefaultBranch || DalamudRepoBrowser.Config.ShowOutdated < 2 && repoInfo.apiLevel != DalamudRepoBrowser.currentAPILevel || doSearch && !search.Contains((repoInfo, plugins))) continue;
 
                     var enabled = DalamudRepoBrowser.GetRepoEnabled(repoInfo.url);
                     if (enabled && DalamudRepoBrowser.Config.HideEnabledRepos && enabledRepos.Contains((repoInfo, plugins))) continue;

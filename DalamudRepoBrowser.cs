@@ -19,6 +19,7 @@ namespace DalamudRepoBrowser
         public readonly uint stars;
         public readonly byte apiLevel;
         public readonly string url;
+        public readonly bool isDefaultBranch;
 
         public RepoInfo(JToken json)
         {
@@ -28,6 +29,7 @@ namespace DalamudRepoBrowser
             stars = (uint?)json["stargazersCount"] ?? 0;
             apiLevel = (byte?)json["dalamudApiLevel"] ?? 0;
             url = (string)json["pluginMasterUrl"] ?? string.Empty;
+            isDefaultBranch = (bool?)json["isDefaultBranch"] ?? false;
         }
     }
 
