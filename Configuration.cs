@@ -8,6 +8,7 @@ namespace DalamudRepoBrowser
         public int Version { get; set; }
         public string RepoMasters = string.Empty;
         public bool HideEnabledRepos = false;
+        public bool HideBranches = true;
         public int RepoSort = 0;
         public int ShowOutdated = 0;
         public HashSet<string> SeenRepos = new();
