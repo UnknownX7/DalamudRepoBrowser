@@ -206,6 +206,11 @@ namespace DalamudRepoBrowser
 
                     ImGui.TextUnformatted($"Owner: {repoInfo.owner}");
                     ImGui.SameLine();
+                    if (!repoInfo.isDefaultBranch && !string.IsNullOrEmpty(repoInfo.branchName))
+                    {
+                        ImGui.TextUnformatted($"Branch: {repoInfo.branchName}");
+                    }
+                    ImGui.SameLine();
                     ImGui.TextColored(new Vector4(1, 1, 0, 1), $"{repoInfo.stars} ★");
 
                     ImGui.Indent(indent);
