@@ -20,6 +20,7 @@ namespace DalamudRepoBrowser
         public readonly byte apiLevel;
         public readonly string url;
         public readonly bool isDefaultBranch;
+        public readonly string branchName;
 
         public RepoInfo(JToken json)
         {
@@ -30,6 +31,7 @@ namespace DalamudRepoBrowser
             apiLevel = (byte?)json["dalamudApiLevel"] ?? 0;
             url = (string)json["pluginMasterUrl"] ?? string.Empty;
             isDefaultBranch = (bool?)json["isDefaultBranch"] ?? false;
+            branchName = (string)json["branchName"] ?? string.Empty;
         }
     }
 
