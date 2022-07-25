@@ -1,6 +1,6 @@
-A simple interface to quickly see and add third party repositories. Utilizes [kalilistic's API](https://app.swaggerhub.com/apis-docs/kalilistic/ffxiv-api).
+A simple interface to quickly see and add third party repositories. Utilizes the [XIV Plugins API](https://app.swaggerhub.com/apis/kalilistic/xiv-plugins-api).
 
-Also see [kalilistic's plugin list](https://kalilistic.io/neat-plugins-plus).
+Also see [XIV Plugins](https://xivplugins.com).
 
 For use with [FFXIVQuickLauncher](https://github.com/goatcorp/FFXIVQuickLauncher).
 

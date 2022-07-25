@@ -1,9 +1,12 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using Dalamud.Logging;
 using Dalamud.Plugin;
@@ -92,7 +95,7 @@ namespace DalamudRepoBrowser
             set => dalamudRepoSettings = value;
         }
 
-        public static readonly string repoMaster = @"https://api.kalilistic.io/dalamud/repos";
+        public static readonly string repoMaster = @"https://api.xivplugins.com/v1/dalamud/repos";
         public static List<(RepoInfo repo, List<PluginInfo> plugins)> repoList = new();
         public static HashSet<string> fetchedRepos = new();
         public static int sortList;
@@ -220,8 +223,9 @@ namespace DalamudRepoBrowser
             {
                 try
                 {
-                    using var client = new WebClient();
+                    using var client = new CustomWebClient();
                     var data = client.DownloadString(repoMaster);
+
                     var repos = JArray.Parse(data);
 
                     if (fetch != startedFetch) return;
@@ -231,7 +235,7 @@ namespace DalamudRepoBrowser
                     foreach (var info in repos)
                         FetchRepoPluginsAsync(info);
                 }
-                catch { PluginLog.LogError($"Failed loading repositories from {repoMaster}"); }
+                catch(Exception ex) { PluginLog.LogError(ex, $"Failed loading repositories from {repoMaster}"); }
             });
         }
 

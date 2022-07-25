@@ -103,7 +103,7 @@ namespace DalamudRepoBrowser
             {
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = @"https://kalilistic.io/neat-plugins-plus",
+                    FileName = @"https://xivplugins.com",
                     UseShellExecute = true
                 });
             }
