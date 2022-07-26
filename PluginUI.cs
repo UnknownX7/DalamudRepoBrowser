@@ -68,7 +68,7 @@ namespace DalamudRepoBrowser
                     _ => DalamudRepoBrowser.repoList
                 };
 
-                enabledRepos = DalamudRepoBrowser.repoList.Where(t => DalamudRepoBrowser.GetRepoEnabled(t.repo.url)).ToHashSet();
+                enabledRepos = DalamudRepoBrowser.repoList.Where(t => DalamudRepoBrowser.GetRepoEnabled(t.repo.url) || DalamudRepoBrowser.GetRepoEnabled(t.repo.rawURL)).ToHashSet();
 
                 DalamudRepoBrowser.repoList.ForEach(t => DalamudRepoBrowser.Config.SeenRepos.Add(t.repo.url));
                 DalamudRepoBrowser.repoList = DalamudRepoBrowser.repoList.OrderBy(t => DalamudRepoBrowser.prevSeenRepos.Contains(t.repo.url)).ToList();
@@ -164,7 +164,7 @@ namespace DalamudRepoBrowser
                 save |= ImGui.Checkbox("Hide Enabled Repos", ref DalamudRepoBrowser.Config.HideEnabledRepos);
                 ImGui.TextUnformatted("");
                 save |= ImGui.Checkbox("Hide Branches", ref DalamudRepoBrowser.Config.HideBranches);
-                
+
                 ImGui.Columns(1);
 
                 if (save)
@@ -184,7 +184,7 @@ namespace DalamudRepoBrowser
                 {
                     if (DalamudRepoBrowser.Config.HideBranches && !repoInfo.isDefaultBranch || DalamudRepoBrowser.Config.ShowOutdated < 2 && repoInfo.apiLevel != DalamudRepoBrowser.currentAPILevel || doSearch && !search.Contains((repoInfo, plugins))) continue;
 
-                    var enabled = DalamudRepoBrowser.GetRepoEnabled(repoInfo.url);
+                    var enabled = DalamudRepoBrowser.GetRepoEnabled(repoInfo.url) || DalamudRepoBrowser.GetRepoEnabled(repoInfo.rawURL);
                     if (enabled && DalamudRepoBrowser.Config.HideEnabledRepos && enabledRepos.Contains((repoInfo, plugins))) continue;
 
                     var seen = DalamudRepoBrowser.prevSeenRepos.Contains(repoInfo.url);
@@ -202,7 +202,7 @@ namespace DalamudRepoBrowser
                     ImGui.SameLine();
 
                     if (ImGui.Checkbox($"{repoInfo.url}##Enabled", ref enabled))
-                        DalamudRepoBrowser.ToggleRepo(repoInfo.url);
+                        DalamudRepoBrowser.ToggleRepo(DalamudRepoBrowser.HasRepo(repoInfo.rawURL) ? repoInfo.rawURL : repoInfo.url);
 
                     ImGui.TextUnformatted($"Owner: {repoInfo.owner}");
                     ImGui.SameLine();

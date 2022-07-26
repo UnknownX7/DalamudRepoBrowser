@@ -1,12 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Reflection;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Dalamud.Logging;
 using Dalamud.Plugin;
@@ -22,6 +20,7 @@ namespace DalamudRepoBrowser
         public readonly uint stars;
         public readonly byte apiLevel;
         public readonly string url;
+        public readonly string rawURL;
         public readonly bool isDefaultBranch;
         public readonly string branchName;
 
@@ -33,6 +32,7 @@ namespace DalamudRepoBrowser
             stars = (uint?)json["stargazersCount"] ?? 0;
             apiLevel = (byte?)json["dalamudApiLevel"] ?? 0;
             url = (string)json["pluginMasterUrl"] ?? string.Empty;
+            rawURL = DalamudRepoBrowser.GetRawURL(url);
             isDefaultBranch = (bool?)json["isDefaultBranch"] ?? false;
             branchName = (string)json["branchName"] ?? string.Empty;
         }
@@ -100,6 +100,9 @@ namespace DalamudRepoBrowser
         public static HashSet<string> fetchedRepos = new();
         public static int sortList;
         public static HashSet<string> prevSeenRepos = new();
+        public static Regex githubRegex = new("github");
+        public static Regex rawRegex = new("\\/raw");
+
 
         private static int fetch = 0;
 
@@ -185,7 +188,11 @@ namespace DalamudRepoBrowser
             ReloadPluginMasters();
         }
 
+        public static string GetRawURL(string url) => url.StartsWith("https://raw.githubusercontent.com") ? url : githubRegex.Replace(rawRegex.Replace(url, "", 1), "raw.githubusercontent", 1);
+
         public static RepoSettings GetRepoSettings(string url) => (from object obj in DalamudRepoSettings select new RepoSettings(obj)).FirstOrDefault(repoSettings => repoSettings.Url == url);
+
+        public static bool HasRepo(string url) => GetRepoSettings(url) != null;
 
         public static void ToggleRepo(string url)
         {
