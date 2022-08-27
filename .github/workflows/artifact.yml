@@ -1,4 +1,4 @@
-name: Build Release Artifact
+name: Build Artifact
 
 on:
   push:
@@ -29,13 +29,9 @@ jobs:
           Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev\"
 
       - name: Build
-        run: msbuild ${{ env.SOLUTION_NAME }}.sln /p:Configuration=Release
-
-      - name: Extract Publish
-        run: |
-          Expand-Archive -Force ./Publish/latest.zip ./Artifact
+        run: msbuild ${{ env.SOLUTION_NAME }}.sln /p:Configuration=Debug
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v2.2.1
         with:
-          path: ./Artifact/*
+          path: ./bin/Debug/*

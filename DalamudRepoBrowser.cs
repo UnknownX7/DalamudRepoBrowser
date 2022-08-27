@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -226,12 +227,12 @@ namespace DalamudRepoBrowser
             PluginLog.LogInformation($"Fetching repositories from {repoMaster}");
 
             var startedFetch = fetch;
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 try
                 {
-                    using var client = new CustomWebClient();
-                    var data = client.DownloadString(repoMaster);
+                    using var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate });
+                    var data = await client.GetStringAsync(repoMaster);
 
                     var repos = JArray.Parse(data);
 
@@ -242,7 +243,7 @@ namespace DalamudRepoBrowser
                     foreach (var info in repos)
                         FetchRepoPluginsAsync(info);
                 }
-                catch(Exception ex) { PluginLog.LogError(ex, $"Failed loading repositories from {repoMaster}"); }
+                catch (Exception ex) { PluginLog.LogError(ex, $"Failed loading repositories from {repoMaster}"); }
             });
         }
 
@@ -272,12 +273,12 @@ namespace DalamudRepoBrowser
             PluginLog.LogInformation($"Fetching plugins from {info.url}");
 
             var startedFetch = fetch;
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 try
                 {
-                    using var client = new WebClient();
-                    var data = client.DownloadString(info.url);
+                    using var client = new HttpClient();
+                    var data = await client.GetStringAsync(info.url);
                     var plugins = JArray.Parse(data);
                     var list = (from plugin in plugins select new PluginInfo(plugin)).ToList();
 
@@ -322,7 +323,6 @@ namespace DalamudRepoBrowser
         public static void PrintEcho(string message) => DalamudApi.ChatGui.Print($"[DalamudRepoBrowser] {message}");
         public static void PrintError(string message) => DalamudApi.ChatGui.PrintError($"[DalamudRepoBrowser] {message}");
 
-        #region IDisposable Support
         protected virtual void Dispose(bool disposing)
         {
             if (!disposing) return;
@@ -337,6 +337,5 @@ namespace DalamudRepoBrowser
             Dispose(true);
             GC.SuppressFinalize(this);
         }
-        #endregion
     }
 }
