@@ -104,7 +104,7 @@ namespace DalamudRepoBrowser
         public static Regex githubRegex = new("github");
         public static Regex rawRegex = new("\\/raw");
 
-
+        private static HttpClient httpClient = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate });
         private static int fetch = 0;
 
         private static Assembly dalamudAssembly;
@@ -227,12 +227,11 @@ namespace DalamudRepoBrowser
             PluginLog.LogInformation($"Fetching repositories from {repoMaster}");
 
             var startedFetch = fetch;
-            Task.Run(async () =>
+            Task.Run(() =>
             {
                 try
                 {
-                    using var client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate });
-                    var data = await client.GetStringAsync(repoMaster);
+                    var data = httpClient.GetStringAsync(repoMaster).Result;
 
                     var repos = JArray.Parse(data);
 
@@ -240,14 +239,16 @@ namespace DalamudRepoBrowser
 
                     PluginLog.LogInformation($"Fetched {repos.Count} repositories from {repoMaster}");
 
-                    foreach (var info in repos)
-                        FetchRepoPluginsAsync(info);
+                    Parallel.ForEach(repos, new ParallelOptions { MaxDegreeOfParallelism = 10 }, FetchRepoPlugins);
                 }
-                catch (Exception ex) { PluginLog.LogError(ex, $"Failed loading repositories from {repoMaster}"); }
+                catch (Exception e)
+                {
+                    PluginLog.LogError(e, $"Failed loading repositories from {repoMaster}");
+                }
             });
         }
 
-        public static void FetchRepoPluginsAsync(JToken json)
+        public static void FetchRepoPlugins(JToken json)
         {
             RepoInfo info;
 
@@ -273,31 +274,30 @@ namespace DalamudRepoBrowser
             PluginLog.LogInformation($"Fetching plugins from {info.url}");
 
             var startedFetch = fetch;
-            Task.Run(async () =>
+            try
             {
-                try
+                var data = httpClient.GetStringAsync(info.url).Result;
+                var plugins = JArray.Parse(data);
+                var list = (from plugin in plugins select new PluginInfo(plugin)).ToList();
+
+                if (list.Count == 0)
                 {
-                    using var client = new HttpClient();
-                    var data = await client.GetStringAsync(info.url);
-                    var plugins = JArray.Parse(data);
-                    var list = (from plugin in plugins select new PluginInfo(plugin)).ToList();
-
-                    if (list.Count == 0)
-                    {
-                        PluginLog.LogInformation($"{info.url} contains no usable plugins!");
-                        return;
-                    }
-
-                    lock (repoList)
-                    {
-                        if (fetch != startedFetch) return;
-
-                        sortList = 60;
-                        repoList.Add((info, list));
-                    }
+                    PluginLog.LogInformation($"{info.url} contains no usable plugins!");
+                    return;
                 }
-                catch { PluginLog.LogError($"Failed loading plugins from {info.url}"); }
-            });
+
+                lock (repoList)
+                {
+                    if (fetch != startedFetch) return;
+
+                    sortList = 60;
+                    repoList.Add((info, list));
+                }
+            }
+            catch (Exception e)
+            {
+                PluginLog.LogError(e, $"Failed loading plugins from {info.url}");
+            }
         }
 
         public static bool GetRepoEnabled(string url)
@@ -330,6 +330,7 @@ namespace DalamudRepoBrowser
             DalamudApi.PluginInterface.UiBuilder.Draw -= PluginUI.Draw;
             DalamudApi.PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfig;
             DalamudApi.Dispose();
+            httpClient.Dispose();
         }
 
         public void Dispose()
