@@ -196,10 +196,10 @@ namespace DalamudRepoBrowser
                         || DalamudRepoBrowser.Config.MaxPlugins < 50 && DalamudRepoBrowser.Config.MaxPlugins < repoInfo.plugins.Count
                         || doSearch && !search.Contains(repoInfo)) continue;
 
-                    filteredCount++;
-
                     var enabled = DalamudRepoBrowser.GetRepoEnabled(repoInfo.url) || DalamudRepoBrowser.GetRepoEnabled(repoInfo.rawURL);
                     if (enabled && DalamudRepoBrowser.Config.HideEnabledRepos && enabledRepos.Contains(repoInfo)) continue;
+
+                    filteredCount++;
 
                     var seen = DalamudRepoBrowser.prevSeenRepos.Contains(repoInfo.url);
 
