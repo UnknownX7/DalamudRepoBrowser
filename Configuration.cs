@@ -11,6 +11,8 @@ namespace DalamudRepoBrowser
         public bool HideBranches = true;
         public int RepoSort = 0;
         public int ShowOutdated = 0;
+        public int MinStars = 2;
+        public int MaxPlugins = 20;
         public HashSet<string> SeenRepos = new();
 
         public void Initialize() { }

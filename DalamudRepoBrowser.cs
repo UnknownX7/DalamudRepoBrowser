@@ -22,8 +22,10 @@ namespace DalamudRepoBrowser
         public readonly byte apiLevel;
         public readonly string url;
         public readonly string rawURL;
+        public readonly string gitRepoURL;
         public readonly bool isDefaultBranch;
         public readonly string branchName;
+        public readonly List<PluginInfo> plugins = new();
 
         public RepoInfo(JToken json)
         {
@@ -34,8 +36,12 @@ namespace DalamudRepoBrowser
             apiLevel = (byte?)json["dalamudApiLevel"] ?? 0;
             url = (string)json["pluginMasterUrl"] ?? string.Empty;
             rawURL = DalamudRepoBrowser.GetRawURL(url);
+            gitRepoURL = (string)json["gitRepoUrl"] ?? string.Empty;
             isDefaultBranch = (bool?)json["isDefaultBranch"] ?? false;
             branchName = (string)json["branchName"] ?? string.Empty;
+
+            foreach (var plugin in json["plugins"])
+                plugins.Add(new PluginInfo(plugin));
         }
     }
 
@@ -51,15 +57,15 @@ namespace DalamudRepoBrowser
 
         public PluginInfo(JToken json)
         {
-            name = (string)json["Name"] ?? string.Empty;
-            description = (string)json["Description"] ?? string.Empty;
-            punchline = (string)json["Punchline"] ?? string.Empty;
-            repoURL = (string)json["RepoUrl"] ?? string.Empty;
-            apiLevel = (byte?)json["DalamudApiLevel"] ?? 0;
+            name = (string)json["name"] ?? string.Empty;
+            description = (string)json["description"] ?? string.Empty;
+            punchline = (string)json["punchline"] ?? string.Empty;
+            repoURL = (string)json["repoUrl"] ?? string.Empty;
+            apiLevel = (byte?)json["dalamudApiLevel"] ?? 0;
             tags = new();
             categoryTags = new();
 
-            var tagsArray = (JArray)json["Tags"];
+            var tagsArray = (JArray)json["tags"];
             if (tagsArray != null)
             {
                 foreach (var t in tagsArray)
@@ -70,7 +76,7 @@ namespace DalamudRepoBrowser
                 }
             }
 
-            var categoryTagsArray = (JArray)json["CategoryTags"];
+            var categoryTagsArray = (JArray)json["categoryTags"];
             if (categoryTagsArray == null) return;
             foreach (var t in categoryTagsArray)
             {
@@ -97,14 +103,14 @@ namespace DalamudRepoBrowser
         }
 
         public static readonly string repoMaster = @"https://api.xivplugins.com/v1/dalamud/repos";
-        public static List<(RepoInfo repo, List<PluginInfo> plugins)> repoList = new();
+        public static List<RepoInfo> repoList = new();
         public static HashSet<string> fetchedRepos = new();
         public static int sortList;
         public static HashSet<string> prevSeenRepos = new();
         public static Regex githubRegex = new("github");
         public static Regex rawRegex = new("\\/raw");
 
-        private static HttpClient httpClient = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate });
+        private static readonly HttpClient httpClient = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate });
         private static int fetch = 0;
 
         private static Assembly dalamudAssembly;
@@ -239,7 +245,45 @@ namespace DalamudRepoBrowser
 
                     PluginLog.LogInformation($"Fetched {repos.Count} repositories from {repoMaster}");
 
-                    Parallel.ForEach(repos, new ParallelOptions { MaxDegreeOfParallelism = 10 }, FetchRepoPlugins);
+                    //Parallel.ForEach(repos, new ParallelOptions { MaxDegreeOfParallelism = 10 }, FetchRepoPlugins);
+
+                    foreach (var json in repos)
+                    {
+                        RepoInfo info;
+
+                        try
+                        {
+                            info = new RepoInfo(json);
+                        }
+                        catch
+                        {
+                            PluginLog.LogError($"Failed parsing {(string)json["pluginMasterUrl"]}.");
+                            continue;
+                        }
+
+                        lock (fetchedRepos)
+                        {
+                            if (!fetchedRepos.Add(info.url))
+                            {
+                                PluginLog.LogError($"{info.url} has already been fetched");
+                                continue;
+                            }
+                        }
+
+                        if (info.plugins.Count == 0)
+                        {
+                            PluginLog.LogInformation($"{info.url} contains no usable plugins!");
+                            continue;
+                        }
+
+                        lock (repoList)
+                        {
+                            if (fetch != startedFetch) return;
+                            repoList.Add(info);
+                        }
+                    }
+
+                    sortList = 60;
                 }
                 catch (Exception e)
                 {
@@ -248,7 +292,7 @@ namespace DalamudRepoBrowser
             });
         }
 
-        public static void FetchRepoPlugins(JToken json)
+        /*public static void FetchRepoPlugins(JToken json)
         {
             RepoInfo info;
 
@@ -298,7 +342,7 @@ namespace DalamudRepoBrowser
             {
                 PluginLog.LogError(e, $"Failed loading plugins from {info.url}");
             }
-        }
+        }*/
 
         public static bool GetRepoEnabled(string url)
         {

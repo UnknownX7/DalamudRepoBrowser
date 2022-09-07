@@ -13,9 +13,10 @@ namespace DalamudRepoBrowser
         public static bool isVisible = false;
         public static bool openSettings = false;
         private static bool firstOpen = true;
-        private static HashSet<(RepoInfo, List<PluginInfo>)> enabledRepos = new();
-        private static HashSet<(RepoInfo, List<PluginInfo>)> search = new();
+        private static HashSet<RepoInfo> enabledRepos = new();
+        private static HashSet<RepoInfo> search = new();
         private static string searchText = string.Empty;
+        private static uint filteredCount = 0;
 
         public static bool AddHeaderIcon(string id, string icon)
         {
@@ -61,17 +62,17 @@ namespace DalamudRepoBrowser
             {
                 DalamudRepoBrowser.repoList = DalamudRepoBrowser.Config.RepoSort switch
                 {
-                    0 => DalamudRepoBrowser.repoList.OrderByDescending(t => t.repo.stars).ToList(),
-                    1 => DalamudRepoBrowser.repoList.OrderBy(t => t.repo.owner).ToList(),
-                    2 => DalamudRepoBrowser.repoList.OrderBy(t => t.repo.url).ToList(),
-                    3 => DalamudRepoBrowser.repoList.OrderByDescending(t => t.plugins.Count(i => DalamudRepoBrowser.Config.ShowOutdated > 0 || i.apiLevel == DalamudRepoBrowser.currentAPILevel)).ToList(),
+                    0 => DalamudRepoBrowser.repoList.OrderByDescending(r => r.stars).ToList(),
+                    1 => DalamudRepoBrowser.repoList.OrderBy(r => r.owner).ToList(),
+                    2 => DalamudRepoBrowser.repoList.OrderBy(r => r.url).ToList(),
+                    3 => DalamudRepoBrowser.repoList.OrderByDescending(r => r.plugins.Count(i => DalamudRepoBrowser.Config.ShowOutdated > 0 || i.apiLevel == DalamudRepoBrowser.currentAPILevel)).ToList(),
                     _ => DalamudRepoBrowser.repoList
                 };
 
-                enabledRepos = DalamudRepoBrowser.repoList.Where(t => DalamudRepoBrowser.GetRepoEnabled(t.repo.url) || DalamudRepoBrowser.GetRepoEnabled(t.repo.rawURL)).ToHashSet();
+                enabledRepos = DalamudRepoBrowser.repoList.Where(r => DalamudRepoBrowser.GetRepoEnabled(r.url) || DalamudRepoBrowser.GetRepoEnabled(r.rawURL)).ToHashSet();
 
-                DalamudRepoBrowser.repoList.ForEach(t => DalamudRepoBrowser.Config.SeenRepos.Add(t.repo.url));
-                DalamudRepoBrowser.repoList = DalamudRepoBrowser.repoList.OrderBy(t => DalamudRepoBrowser.prevSeenRepos.Contains(t.repo.url)).ToList();
+                DalamudRepoBrowser.repoList.ForEach(r => DalamudRepoBrowser.Config.SeenRepos.Add(r.url));
+                DalamudRepoBrowser.repoList = DalamudRepoBrowser.repoList.OrderBy(r => DalamudRepoBrowser.prevSeenRepos.Contains(r.url)).ToList();
 
                 DalamudRepoBrowser.Config.Save();
             }
@@ -120,14 +121,14 @@ namespace DalamudRepoBrowser
             var inputWidth = ImGui.GetWindowContentRegionMax().X / 4;
             ImGui.SameLine(inputWidth * 3);
             ImGui.SetNextItemWidth(inputWidth);
-            if (ImGui.InputTextWithHint("##Search", $"Search {DalamudRepoBrowser.repoList.Count} Repos", ref searchText, 64))
+            if (ImGui.InputTextWithHint("##Search", $"Search {filteredCount} / {DalamudRepoBrowser.repoList.Count} Repos", ref searchText, 64))
             {
                 lock (DalamudRepoBrowser.repoList)
                 {
-                    search = DalamudRepoBrowser.repoList.Where(t
-                        => t.repo.url.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
-                           || t.repo.fullName.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
-                           || t.plugins.Any(plugin => plugin.name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+                    search = DalamudRepoBrowser.repoList.Where(r
+                        => r.url.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+                           || r.fullName.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
+                           || r.plugins.Any(plugin => plugin.name.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
                                 || plugin.punchline.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
                                 || plugin.description.Contains(searchText, StringComparison.CurrentCultureIgnoreCase)
                                 || plugin.tags.Any(s => s.Equals(searchText, StringComparison.CurrentCultureIgnoreCase))
@@ -159,11 +160,17 @@ namespace DalamudRepoBrowser
                 ImGui.SameLine();
                 save |= ImGui.RadioButton("# Plugins", ref DalamudRepoBrowser.Config.RepoSort, 3);
 
+                ImGui.SetNextItemWidth(ImGui.GetWindowWidth() / 5);
+                save |= ImGui.SliderInt("Minimum Stars", ref DalamudRepoBrowser.Config.MinStars, 0, 20);
+
                 ImGui.NextColumn();
                 ImGui.TextUnformatted("");
                 save |= ImGui.Checkbox("Hide Enabled Repos", ref DalamudRepoBrowser.Config.HideEnabledRepos);
                 ImGui.TextUnformatted("");
                 save |= ImGui.Checkbox("Hide Branches", ref DalamudRepoBrowser.Config.HideBranches);
+
+                ImGui.SetNextItemWidth(ImGui.GetWindowWidth() / 5);
+                save |= ImGui.SliderInt(DalamudRepoBrowser.Config.MaxPlugins >= 50 ? "∞ Plugins###MaxPlugins" : "Maximum Plugins###MaxPlugins", ref DalamudRepoBrowser.Config.MaxPlugins, 20, 50);
 
                 ImGui.Columns(1);
 
@@ -180,17 +187,43 @@ namespace DalamudRepoBrowser
             lock (DalamudRepoBrowser.repoList)
             {
                 var doSearch = !string.IsNullOrEmpty(searchText);
-                foreach (var (repoInfo, plugins) in DalamudRepoBrowser.repoList)
+                filteredCount = 0;
+                foreach (var repoInfo in DalamudRepoBrowser.repoList)
                 {
-                    if (DalamudRepoBrowser.Config.HideBranches && !repoInfo.isDefaultBranch || DalamudRepoBrowser.Config.ShowOutdated < 2 && repoInfo.apiLevel != DalamudRepoBrowser.currentAPILevel || doSearch && !search.Contains((repoInfo, plugins))) continue;
+                    if (DalamudRepoBrowser.Config.HideBranches && !repoInfo.isDefaultBranch
+                        || DalamudRepoBrowser.Config.ShowOutdated < 2 && repoInfo.apiLevel != DalamudRepoBrowser.currentAPILevel
+                        || DalamudRepoBrowser.Config.MinStars > repoInfo.stars
+                        || DalamudRepoBrowser.Config.MaxPlugins < 50 && DalamudRepoBrowser.Config.MaxPlugins < repoInfo.plugins.Count
+                        || doSearch && !search.Contains(repoInfo)) continue;
+
+                    filteredCount++;
 
                     var enabled = DalamudRepoBrowser.GetRepoEnabled(repoInfo.url) || DalamudRepoBrowser.GetRepoEnabled(repoInfo.rawURL);
-                    if (enabled && DalamudRepoBrowser.Config.HideEnabledRepos && enabledRepos.Contains((repoInfo, plugins))) continue;
+                    if (enabled && DalamudRepoBrowser.Config.HideEnabledRepos && enabledRepos.Contains(repoInfo)) continue;
 
                     var seen = DalamudRepoBrowser.prevSeenRepos.Contains(repoInfo.url);
 
                     if (ImGui.Button($"Copy Link##{repoInfo.url}"))
                         ImGui.SetClipboardText(repoInfo.url);
+
+                    ImGui.SameLine();
+
+                    ImGui.PushFont(UiBuilder.IconFont);
+
+                    if (!string.IsNullOrEmpty(repoInfo.gitRepoURL) && ImGui.Button($"{FontAwesomeIcon.Globe.ToIconString()}##{repoInfo.url}"))
+                    {
+                        try
+                        {
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = repoInfo.gitRepoURL,
+                                UseShellExecute = true
+                            });
+                        }
+                        catch { }
+                    }
+
+                    ImGui.PopFont();
 
                     if (!seen)
                     {
@@ -207,9 +240,7 @@ namespace DalamudRepoBrowser
                     ImGui.TextUnformatted($"Owner: {repoInfo.owner}");
                     ImGui.SameLine();
                     if (!repoInfo.isDefaultBranch && !string.IsNullOrEmpty(repoInfo.branchName))
-                    {
                         ImGui.TextUnformatted($"Branch: {repoInfo.branchName}");
-                    }
                     ImGui.SameLine();
                     ImGui.TextColored(new Vector4(1, 1, 0, 1), $"{repoInfo.stars} ★");
 
@@ -217,15 +248,14 @@ namespace DalamudRepoBrowser
                     ImGui.SetWindowFontScale(0.9f);
 
                     var count = 0;
-                    for (int i = 0; i < plugins.Count; i++)
+                    foreach (var plugin in repoInfo.plugins)
                     {
-                        var info = plugins[i];
-                        var valid = info.apiLevel == DalamudRepoBrowser.currentAPILevel;
+                        var valid = plugin.apiLevel == DalamudRepoBrowser.currentAPILevel;
                         if (DalamudRepoBrowser.Config.ShowOutdated < 1 && !valid) continue;
 
                         // This is dumb, ImGui is dumb
                         var prevCursor = ImGui.GetCursorPos();
-                        ImGui.Dummy(ImGui.CalcTextSize(info.name));
+                        ImGui.Dummy(ImGui.CalcTextSize(plugin.name));
                         var textMin = ImGui.GetItemRectMin();
                         var textMax = ImGui.GetItemRectMax();
                         textMin.X -= padding;
@@ -242,30 +272,34 @@ namespace DalamudRepoBrowser
                             drawList.AddLine(new Vector2(textMin.X, textMax.Y), new Vector2(textMax.X, textMin.Y), color, thickness);
                         }
 
-                        ImGui.Text(info.name);
+                        ImGui.Text(plugin.name);
                         if (ImGui.IsItemHovered())
                         {
-                            var hasRepo = !string.IsNullOrEmpty(info.repoURL);
-                            var hasPunchline = !string.IsNullOrEmpty(info.punchline);
-                            var hasDescription = !string.IsNullOrEmpty(info.description);
-                            var tooltip = (hasRepo ? info.repoURL : string.Empty);
+                            var hasRepo = !string.IsNullOrEmpty(plugin.repoURL);
+                            var hasPunchline = !string.IsNullOrEmpty(plugin.punchline);
+                            var hasDescription = !string.IsNullOrEmpty(plugin.description);
+                            var tooltip = (hasRepo ? plugin.repoURL : string.Empty);
 
                             if (hasPunchline)
-                                tooltip += hasRepo ? $"\n-\n{info.punchline}" : info.punchline;
+                                tooltip += hasRepo ? $"\n-\n{plugin.punchline}" : plugin.punchline;
 
                             if (hasDescription)
-                                tooltip += hasRepo || hasPunchline ? $"\n-\n{info.description}" : info.description;
+                                tooltip += hasRepo || hasPunchline ? $"\n-\n{plugin.description}" : plugin.description;
 
                             if (!string.IsNullOrEmpty(tooltip))
                                 ImGui.SetTooltip(tooltip);
 
-                            if (hasRepo && ImGui.IsMouseReleased(ImGuiMouseButton.Left) && info.repoURL.StartsWith(@"http"))
+                            if (hasRepo && ImGui.IsMouseReleased(ImGuiMouseButton.Left) && plugin.repoURL.StartsWith(@"http"))
                             {
-                                Process.Start(new ProcessStartInfo
+                                try
                                 {
-                                    FileName = info.repoURL,
-                                    UseShellExecute = true
-                                });
+                                    Process.Start(new ProcessStartInfo
+                                    {
+                                        FileName = plugin.repoURL,
+                                        UseShellExecute = true
+                                    });
+                                }
+                                catch { }
                             }
                         }
 
