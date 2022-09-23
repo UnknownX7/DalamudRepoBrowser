@@ -14,6 +14,7 @@ namespace DalamudRepoBrowser
         public int MinStars = 2;
         public int MaxPlugins = 20;
         public HashSet<string> SeenRepos = new();
+        public long LastUpdatedRepoList = 0;
 
         public void Initialize() { }
 

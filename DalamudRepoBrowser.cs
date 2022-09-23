@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -125,6 +126,10 @@ namespace DalamudRepoBrowser
         {
             Plugin = this;
             DalamudApi.Initialize(this, pluginInterface);
+            
+            httpClient.DefaultRequestHeaders.Add("Application-Name", "DalamudRepoBrowser");
+            httpClient.DefaultRequestHeaders.Add("Application-Version", 
+                Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.0.0.0");
 
             Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
             Config.Initialize();
@@ -227,6 +232,16 @@ namespace DalamudRepoBrowser
 
             FetchRepoListAsync(repoMaster);
         }
+        
+        private static bool ShouldCheckRepoList()
+        {
+            return !File.Exists(GetReposFilePath()) ||
+                   Config.LastUpdatedRepoList == 0 || 
+                   new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds() >= Config.LastUpdatedRepoList + 86400000 ||
+                   DateTime.UtcNow.Hour >= 8 && DateTimeOffset.FromUnixTimeSeconds(Config.LastUpdatedRepoList).Hour < 8;
+        }
+
+        public static string GetReposFilePath() => DalamudApi.PluginInterface.ConfigDirectory + "/repos.json";
 
         public static void FetchRepoListAsync(string repoMaster)
         {
@@ -237,7 +252,20 @@ namespace DalamudRepoBrowser
             {
                 try
                 {
-                    var data = httpClient.GetStringAsync(repoMaster).Result;
+                    string data;
+                    if (ShouldCheckRepoList())
+                    {
+                        PluginLog.LogInformation($"Retrieving latest data from repo master api.");
+                        data = httpClient.GetStringAsync(repoMaster).Result;
+                        File.WriteAllText(GetReposFilePath(), data);
+                        Config.LastUpdatedRepoList = new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds();
+                        Config.Save();
+                    }
+                    else
+                    {
+                        PluginLog.LogInformation($"Using cached data for repo list.");
+                        data = File.ReadAllText(GetReposFilePath());
+                    }
 
                     var repos = JArray.Parse(data);
 
