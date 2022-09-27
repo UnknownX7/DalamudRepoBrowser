@@ -126,9 +126,9 @@ namespace DalamudRepoBrowser
         {
             Plugin = this;
             DalamudApi.Initialize(this, pluginInterface);
-            
+
             httpClient.DefaultRequestHeaders.Add("Application-Name", "DalamudRepoBrowser");
-            httpClient.DefaultRequestHeaders.Add("Application-Version", 
+            httpClient.DefaultRequestHeaders.Add("Application-Version",
                 Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.0.0.0");
 
             Config = (Configuration)DalamudApi.PluginInterface.GetPluginConfig() ?? new();
@@ -232,13 +232,13 @@ namespace DalamudRepoBrowser
 
             FetchRepoListAsync(repoMaster);
         }
-        
+
         private static bool ShouldCheckRepoList()
         {
-            return !File.Exists(GetReposFilePath()) ||
-                   Config.LastUpdatedRepoList == 0 || 
-                   new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds() >= Config.LastUpdatedRepoList + 86400000 ||
-                   DateTime.UtcNow.Hour >= 8 && DateTimeOffset.FromUnixTimeSeconds(Config.LastUpdatedRepoList).Hour < 8;
+            return !File.Exists(GetReposFilePath())
+                || Config.LastUpdatedRepoList == 0
+                || new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds() >= Config.LastUpdatedRepoList + 86400000
+                || DateTime.UtcNow.Hour >= 8 && DateTimeOffset.FromUnixTimeSeconds(Config.LastUpdatedRepoList).Hour < 8;
         }
 
         public static string GetReposFilePath() => DalamudApi.PluginInterface.ConfigDirectory + "/repos.json";
