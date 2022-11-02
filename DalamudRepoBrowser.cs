@@ -159,7 +159,7 @@ namespace DalamudRepoBrowser
             dalamudAssembly = Assembly.GetAssembly(typeof(DalamudPluginInterface));
             dalamudServiceType = dalamudAssembly?.GetType("Dalamud.Service`1");
             thirdPartyRepoSettingsType = dalamudAssembly?.GetType("Dalamud.Configuration.ThirdPartyRepoSettings");
-            if (dalamudServiceType == null || thirdPartyRepoSettingsType == null) throw new NullReferenceException();
+            if (dalamudServiceType == null || thirdPartyRepoSettingsType == null) throw new NullReferenceException($"\nDS: {dalamudServiceType}\n3PRS: {thirdPartyRepoSettingsType}");
 
             dalamudPluginManager = GetService("Dalamud.Plugin.Internal.PluginManager");
             dalamudConfig = GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
@@ -175,9 +175,9 @@ namespace DalamudRepoBrowser
                 .GetMethod("SetPluginReposFromConfigAsync", BindingFlags.Instance | BindingFlags.Public);
 
             configSave = dalamudConfig?.GetType()
-                .GetMethod("Save", BindingFlags.Instance | BindingFlags.Public);
+                .GetMethod("QueueSave", BindingFlags.Instance | BindingFlags.Public);
 
-            if (dalamudPluginManager == null || dalamudConfig == null || dalamudRepoSettingsProperty == null || pluginReload == null || configSave == null) throw new NullReferenceException();
+            if (dalamudPluginManager == null || dalamudConfig == null || dalamudRepoSettingsProperty == null || pluginReload == null || configSave == null) throw new NullReferenceException($"\nDPM: {dalamudPluginManager}\nDC: {dalamudConfig}\nDRS: {dalamudRepoSettingsProperty}\nPR: {pluginReload}\nCS: {configSave}");
         }
 
         public static void AddRepo(string url)
