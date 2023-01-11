@@ -235,10 +235,17 @@ namespace DalamudRepoBrowser
 
         private static bool ShouldCheckRepoList()
         {
-            return !File.Exists(GetReposFilePath())
-                || Config.LastUpdatedRepoList == 0
-                || new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds() >= Config.LastUpdatedRepoList + 86400000
-                || DateTime.UtcNow.Hour >= 8 && DateTimeOffset.FromUnixTimeSeconds(Config.LastUpdatedRepoList).Hour < 8;
+            try
+            {
+                return !File.Exists(GetReposFilePath())
+                   || Config.LastUpdatedRepoList == 0
+                   || new DateTimeOffset(DateTime.UtcNow).ToUnixTimeMilliseconds() >= Config.LastUpdatedRepoList + 86400000
+                   || DateTime.UtcNow.Hour >= 8 && DateTimeOffset.FromUnixTimeSeconds(Config.LastUpdatedRepoList).Hour < 8;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         public static string GetReposFilePath() => DalamudApi.PluginInterface.ConfigDirectory + "/repos.json";
