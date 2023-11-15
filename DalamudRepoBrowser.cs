@@ -164,11 +164,9 @@ namespace DalamudRepoBrowser
             dalamudPluginManager = GetService("Dalamud.Plugin.Internal.PluginManager");
             dalamudConfig = GetService("Dalamud.Configuration.Internal.DalamudConfiguration");
 
-            currentAPILevel = (int)dalamudPluginManager?.GetType()
-                .GetField("DalamudApiLevel", BindingFlags.Static | BindingFlags.Public)
-                ?.GetValue(dalamudPluginManager)!;
+			currentAPILevel = typeof( DalamudPluginInterface ).Assembly.GetName( ).Version!.Major;
 
-            dalamudRepoSettingsProperty = dalamudConfig?.GetType()
+			dalamudRepoSettingsProperty = dalamudConfig?.GetType()
                 .GetProperty("ThirdRepoList", BindingFlags.Instance | BindingFlags.Public);
 
             pluginReload = dalamudPluginManager?.GetType()
