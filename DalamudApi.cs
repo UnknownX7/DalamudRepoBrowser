@@ -23,6 +23,7 @@ using Dalamud.Game.Network;
 using Dalamud.IoC;
 using Dalamud.Logging;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 
 // ReSharper disable CheckNamespace
 // ReSharper disable UnusedAutoPropertyAccessor.Local
@@ -37,87 +38,88 @@ namespace Dalamud
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static BuddyList BuddyList { get; private set; }
+        public static IBuddyList BuddyList { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static ChatGui ChatGui { get; private set; }
+        public static IChatGui ChatGui { get; private set; }
+
+        // Not referenced.
+        //[PluginService]
+        //[RequiredVersion("1.0")]
+        //public static IChatHandlers ChatHandlers { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static ChatHandlers ChatHandlers { get; private set; }
+        public static IClientState ClientState { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static ClientState ClientState { get; private set; }
+        public static ICommandManager CommandManager { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static CommandManager CommandManager { get; private set; }
+        public static ICondition Condition { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static Condition Condition { get; private set; }
+        public static IDataManager DataManager { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static DataManager DataManager { get; private set; }
+        public static IFateTable FateTable { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static FateTable FateTable { get; private set; }
+        public static IFlyTextGui FlyTextGui { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static FlyTextGui FlyTextGui { get; private set; }
+        public static IFramework Framework { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static Framework Framework { get; private set; }
+        public static IGameGui GameGui { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static GameGui GameGui { get; private set; }
+        public static IGameNetwork GameNetwork { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static GameNetwork GameNetwork { get; private set; }
+        public static IJobGauges JobGauges { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static JobGauges JobGauges { get; private set; }
+        public static IKeyState KeyState { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static KeyState KeyState { get; private set; }
+        public static ILibcFunction LibcFunction { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static LibcFunction LibcFunction { get; private set; }
+        public static IObjectTable ObjectTable { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static ObjectTable ObjectTable { get; private set; }
+        public static IPartyFinderGui PartyFinderGui { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static PartyFinderGui PartyFinderGui { get; private set; }
+        public static IPartyList PartyList { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static PartyList PartyList { get; private set; }
+        public static ISigScanner SigScanner { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static SigScanner SigScanner { get; private set; }
+        public static ITargetManager TargetManager { get; private set; }
 
         [PluginService]
         //[RequiredVersion("1.0")]
-        public static TargetManager TargetManager { get; private set; }
-
-        [PluginService]
-        //[RequiredVersion("1.0")]
-        public static ToastGui ToastGui { get; private set; }
+        public static IToastGui ToastGui { get; private set; }
 
         private static PluginCommandManager<IDalamudPlugin> pluginCommandManager;
 
